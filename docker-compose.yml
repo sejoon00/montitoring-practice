@@ -8,6 +8,8 @@ services:
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
+    networks:
+      - obs
 
   grafana:
     image: grafana/grafana:latest
@@ -17,6 +19,17 @@ services:
       - "3000:3000"
     volumes:
       - grafana_data:/var/lib/grafana
+    networks:
+      - obs
+
+  pushgateway:
+    image: prom/pushgateway:latest
+    container_name: pushgateway
+    restart: unless-stopped
+    ports:
+      - "9091:9091"
+    networks:
+      - obs
 
   node-exporter:
     image: prom/node-exporter:latest
@@ -33,14 +46,8 @@ services:
       - --path.procfs=/host/proc
       - --path.sysfs=/host/sys
 
-  pushgateway:
-    image: prom/pushgateway:latest
-    container_name: pushgateway
-    restart: unless-stopped
-    ports:
-      - "9091:9091"
-    networks:
-      - obs
+networks:
+  obs: {}
 
 volumes:
   prometheus_data: {}
