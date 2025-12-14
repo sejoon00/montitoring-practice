@@ -3,16 +3,20 @@ services:
     image: prom/prometheus:latest
     container_name: prometheus
     restart: unless-stopped
-    command:
-      - --config.file=/etc/prometheus/prometheus.yml
-      - --storage.tsdb.path=/prometheus
-    volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus_data:/prometheus
     ports:
       - "9090:9090"
-    networks:
-      - obs
+    environment:
+      - SERVER_IP=${SERVER_IP}
+    volumes:
+      - ./prometheus/prometheus.yml.tmpl:/etc/prometheus/prometheus.yml.tmpl:ro
+      - prometheus_data:/prometheus
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      apk add --no-cache gettext &&
+      envsubst < /etc/prometheus/prometheus.yml.tmpl > /etc/prometheus/prometheus.yml &&
+      /bin/prometheus
+      --config.file=/etc/prometheus/prometheus.yml
+      --storage.tsdb.path=/prometheus
 
   grafana:
     image: grafana/grafana:latest
@@ -22,21 +26,20 @@ services:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
       GF_USERS_ALLOW_SIGN_UP: "false"
-    volumes:
-      - grafana_data:/var/lib/grafana
     ports:
       - "3000:3000"
     depends_on:
       - prometheus
-    networks:
-      - obs
+    volumes:
+      - grafana_data:/var/lib/grafana
 
   node-exporter:
     image: prom/node-exporter:latest
     container_name: node-exporter
     restart: unless-stopped
-    pid: host
+    # 호스트 메트릭을 정확히 보려면 host 네트워크를 유지
     network_mode: host
+    pid: host
     volumes:
       - /:/host:ro,rslave
       - /proc:/host/proc:ro
@@ -47,9 +50,6 @@ services:
       - --path.sysfs=/host/sys
       - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|var/lib/docker/.+)($|/)
       - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|mqueue|overlay|proc|pstore|rpc_pipefs|securityfs|sysfs|tracefs)$
-
-networks:
-  obs: {}
 
 volumes:
   prometheus_data: {}
